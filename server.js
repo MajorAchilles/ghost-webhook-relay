@@ -2,16 +2,16 @@ const http = require("http");
 const https = require("https");
 
 const PORT = process.env.PORT || 2369;
-const GITHUB_TOKEN = process.env.PAT_GITHUB;
-const REPO_NAME = process.env.REPO_NAME; // e.g. "MajorAchilles/content-blog-amlanjs-in"
+const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
+const GITHUB_REPO = process.env.GITHUB_REPO; // e.g. "MajorAchilles/content-blog-amlanjs-in"
 const GITHUB_EVENT_TYPE = process.env.GITHUB_EVENT_TYPE || "ghost-backup";
 
 if (!GITHUB_TOKEN) {
-  console.error("[relay] ERROR: PAT_GITHUB environment variable is required");
+  console.error("[relay] ERROR: GITHUB_TOKEN environment variable is required");
   process.exit(1);
 }
-if (!REPO_NAME) {
-  console.error("[relay] ERROR: REPO_NAME environment variable is required");
+if (!GITHUB_REPO) {
+  console.error("[relay] ERROR: GITHUB_REPO environment variable is required");
   process.exit(1);
 }
 
@@ -24,7 +24,7 @@ function dispatchToGitHub(payload) {
 
     const options = {
       hostname: "api.github.com",
-      path: `/repos/${REPO_NAME}/dispatches`,
+      path: `/repos/${GITHUB_REPO}/dispatches`,
       method: "POST",
       headers: {
         Authorization: `Bearer ${GITHUB_TOKEN}`,
@@ -41,7 +41,7 @@ function dispatchToGitHub(payload) {
       res.on("end", () => {
         if (res.statusCode === 204) {
           console.log(
-            `[relay] ✅ Dispatched to GitHub (${REPO_NAME}) — event: ${GITHUB_EVENT_TYPE}`,
+            `[relay] ✅ Dispatched to GitHub (${GITHUB_REPO}) — event: ${GITHUB_EVENT_TYPE}`,
           );
           resolve();
         } else {
@@ -63,7 +63,7 @@ const server = http.createServer((req, res) => {
   // Health check
   if (req.method === "GET" && req.url === "/health") {
     res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ status: "ok", repo: REPO_NAME }));
+    res.end(JSON.stringify({ status: "ok", repo: GITHUB_REPO }));
     return;
   }
 
@@ -106,6 +106,6 @@ const server = http.createServer((req, res) => {
 
 server.listen(PORT, () => {
   console.log(`[relay] Ghost → GitHub webhook relay running on port ${PORT}`);
-  console.log(`[relay] Forwarding to repo: ${REPO_NAME}`);
+  console.log(`[relay] Forwarding to repo: ${GITHUB_REPO}`);
   console.log(`[relay] Event type: ${GITHUB_EVENT_TYPE}`);
 });

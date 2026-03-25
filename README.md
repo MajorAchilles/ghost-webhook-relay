@@ -14,8 +14,8 @@ Ghost (on publish) → POST http://webhook-relay:2369 → GitHub API /dispatches
 
 | Variable            | Required | Default        | Description                                               |
 | ------------------- | -------- | -------------- | --------------------------------------------------------- |
-| `PAT_GITHUB`        | ✅       | —              | GitHub PAT with `Contents: write` on the target repo      |
-| `REPO_NAME`         | ✅       | —              | Target repo, e.g. `MajorAchilles/content-blog-amlanjs-in` |
+| `GITHUB_TOKEN`      | ✅       | —              | GitHub PAT with `Contents: write` on the target repo      |
+| `GITHUB_REPO`       | ✅       | —              | Target repo, e.g. `MajorAchilles/content-blog-amlanjs-in` |
 | `GITHUB_EVENT_TYPE` | ❌       | `ghost-backup` | The `event_type` sent to GitHub dispatch                  |
 | `PORT`              | ❌       | `2369`         | Port the relay listens on                                 |
 
@@ -33,8 +33,8 @@ webhook-relay:
   image: ghcr.io/MajorAchilles/ghost-webhook-relay:latest
   restart: always
   environment:
-    PAT_GITHUB: ${PAT_GITHUB}
-    REPO_NAME: ${REPO_NAME}
+    GITHUB_TOKEN: ${GITHUB_TOKEN}
+    GITHUB_REPO: ${GITHUB_REPO}
   networks:
     - ghost_net
 ```
@@ -52,8 +52,8 @@ http://webhook-relay:2369
 ```bash
 docker build -t ghost-webhook-relay .
 docker run --rm \
-  -e PAT_GITHUB=your_pat \
-  -e REPO_NAME=MajorAchilles/content-blog-amlanjs-in \
+  -e GITHUB_TOKEN=your_pat \
+  -e GITHUB_REPO=MajorAchilles/content-blog-amlanjs-in \
   -p 2369:2369 \
   ghost-webhook-relay
 ```

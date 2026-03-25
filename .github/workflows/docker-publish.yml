@@ -2,10 +2,10 @@ name: Build & Push Docker Image
 
 on:
   push:
-    branches: [main, master]
+    branches: [master]
     tags: ["v*"]
   pull_request:
-    branches: [main, master]
+    branches: [master]
 
 env:
   REGISTRY: ghcr.io
@@ -28,7 +28,7 @@ jobs:
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
-          password: ${{ secrets.PAT_GITHUB }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Extract metadata
         id: meta
