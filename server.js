@@ -6,7 +6,7 @@ const PORT = process.env.PORT || 2369;
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 const GITHUB_REPO = process.env.GITHUB_REPO;
 const GITHUB_EVENT_TYPE = process.env.GITHUB_EVENT_TYPE || "ghost-backup";
-const GHOST_ADMIN_API_KEY = process.env.GHOST_ADMIN_API_KEY; // id:secret from Ghost integration
+const GHOST_ADMIN_API_KEY = process.env.GHOST_ADMIN_API_KEY;
 const GHOST_API_URL = process.env.GHOST_API_URL || "http://ghost:2368";
 
 if (!GITHUB_TOKEN) {
@@ -34,24 +34,23 @@ function generateGhostJWT(adminApiKey) {
     JSON.stringify({ iat: now, exp: now + 300, aud: "/admin/" }),
   ).toString("base64url");
   const secretBytes = Buffer.from(secret, "hex");
-  const signature = crypto
+  const sig = crypto
     .createHmac("sha256", secretBytes)
     .update(`${header}.${payload}`)
     .digest("base64url");
-  return `${header}.${payload}.${signature}`;
+  return `${header}.${payload}.${sig}`;
 }
 
-function fetchPost(postId) {
+// Calls Ghost Admin API internally, rewriting any 301/302 redirect back to
+// the internal host instead of following it to the public HTTPS URL.
+function ghostRequest(path) {
+  const internalBase = new URL(GHOST_API_URL);
   return new Promise((resolve, reject) => {
     const jwt = generateGhostJWT(GHOST_ADMIN_API_KEY);
-    const url = new URL(
-      `/ghost/api/admin/posts/${postId}/?formats=html&include=tags,authors`,
-      GHOST_API_URL,
-    );
     const options = {
-      hostname: url.hostname,
-      port: Number(url.port) || 2368,
-      path: url.pathname + url.search,
+      hostname: internalBase.hostname,
+      port: Number(internalBase.port) || 2368,
+      path,
       method: "GET",
       headers: {
         Authorization: `Ghost ${jwt}`,
@@ -59,19 +58,30 @@ function fetchPost(postId) {
       },
     };
     const req = http.request(options, (res) => {
+      if (res.statusCode === 301 || res.statusCode === 302) {
+        const location = res.headers["location"];
+        if (!location)
+          return reject(new Error("Redirect with no Location header"));
+        const redirectUrl = new URL(location);
+        // Follow the path only — keep using internal host, not the public URL
+        const internalPath = redirectUrl.pathname + redirectUrl.search;
+        console.log(
+          `[relay] Rewriting redirect to internal path: ${internalPath}`,
+        );
+        return ghostRequest(internalPath).then(resolve).catch(reject);
+      }
       let data = "";
       res.on("data", (chunk) => (data += chunk));
       res.on("end", () => {
         if (res.statusCode !== 200) {
           console.error(
-            "[relay] Ghost API status:",
-            res.statusCode,
+            `[relay] Ghost API status: ${res.statusCode}`,
             data.substring(0, 200),
           );
-          return reject(new Error("Ghost API error: " + res.statusCode));
+          return reject(new Error(`Ghost API error: ${res.statusCode}`));
         }
         try {
-          resolve(JSON.parse(data).posts?.[0] || null);
+          resolve(JSON.parse(data));
         } catch (e) {
           console.error(
             "[relay] Parse error, raw response:",
@@ -84,6 +94,12 @@ function fetchPost(postId) {
     req.on("error", reject);
     req.end();
   });
+}
+
+function fetchPost(postId) {
+  return ghostRequest(
+    `/ghost/api/admin/posts/${postId}/?formats=html&include=tags,authors`,
+  ).then((data) => data.posts?.[0] || null);
 }
 
 function postToMarkdown(post) {
