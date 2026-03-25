@@ -50,7 +50,7 @@ function fetchPost(postId) {
     );
     const options = {
       hostname: url.hostname,
-      port: url.port || 2368,
+      port: Number(url.port) || 2368,
       path: url.pathname + url.search,
       method: "GET",
       headers: {
@@ -62,9 +62,21 @@ function fetchPost(postId) {
       let data = "";
       res.on("data", (chunk) => (data += chunk));
       res.on("end", () => {
+        if (res.statusCode !== 200) {
+          console.error(
+            "[relay] Ghost API status:",
+            res.statusCode,
+            data.substring(0, 200),
+          );
+          return reject(new Error("Ghost API error: " + res.statusCode));
+        }
         try {
           resolve(JSON.parse(data).posts?.[0] || null);
-        } catch {
+        } catch (e) {
+          console.error(
+            "[relay] Parse error, raw response:",
+            data.substring(0, 300),
+          );
           reject(new Error("Failed to parse Ghost API response"));
         }
       });
