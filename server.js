@@ -55,6 +55,7 @@ function ghostRequest(path) {
       headers: {
         Authorization: `Ghost ${jwt}`,
         "Content-Type": "application/json",
+        "X-Forwarded-Proto": "https",
       },
     };
     const req = http.request(options, (res) => {
